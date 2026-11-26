@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+
+import 'livre_detail_page.dart';
+
 import 'package:bibliotheque_app/database/sql_helper.dart';
 import 'package:bibliotheque_app/widgets/drawer_widget.dart';
+import 'package:bibliotheque_app/widgets/couverture_picker.dart';
 
 class LivresPage extends StatefulWidget {
   const LivresPage({super.key});
@@ -13,8 +16,9 @@ class LivresPage extends StatefulWidget {
 }
 
 class _LivresPageState extends State<LivresPage> {
+  bool _afficherFavoris = false;
+
   final TextEditingController _searchController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   List<Map<String, dynamic>> _livres = [];
   bool _isLoading = true;
@@ -35,6 +39,30 @@ class _LivresPageState extends State<LivresPage> {
     super.dispose();
   }
 
+  Future<void> _toggleFavori(Map<String, dynamic> livre) async {
+    final id = livre['id'] as int?;
+    if (id == null) return;
+
+    final actuel = (livre['favori'] ?? 0) == 1;
+
+    await SQLHelper.setFavori(id, !actuel);
+
+    if (!mounted) return;
+
+    setState(() {
+      livre['favori'] = actuel ? 0 : 1;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          actuel ? 'Livre retiré des favoris' : 'Livre ajouté aux favoris',
+        ),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   Future<void> _loadLivres([String query = '']) async {
     setState(() => _isLoading = true);
 
@@ -48,15 +76,6 @@ class _LivresPageState extends State<LivresPage> {
       _livres = data;
       _isLoading = false;
     });
-  }
-
-  Future<String?> _pickPhoto() async {
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-      maxWidth: 1000,
-    );
-    return image?.path;
   }
 
   Future<void> _showForm({Map<String, dynamic>? livre}) async {
@@ -97,43 +116,12 @@ class _LivresPageState extends State<LivresPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      GestureDetector(
-                        onTap: () async {
-                          final selected = await _pickPhoto();
-                          if (selected != null) {
-                            setDialogState(() => photo = selected);
-                          }
+                      CouverturePicker(
+                        initialImage: photo,
+                        initialQuery: titreController.text,
+                        onChanged: (value) {
+                          setDialogState(() => photo = value);
                         },
-                        child: Container(
-                          height: 135,
-                          width: 105,
-                          decoration: BoxDecoration(
-                            color: cream,
-                            borderRadius: BorderRadius.circular(13),
-                            border: Border.all(
-                              color: green.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: photo != null && File(photo!).existsSync()
-                              ? Image.file(File(photo!), fit: BoxFit.cover)
-                              : const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.add_a_photo_outlined,
-                                      size: 30,
-                                      color: green,
-                                    ),
-                                    SizedBox(height: 7),
-                                    Text(
-                                      'Ajouter une photo',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 11),
-                                    ),
-                                  ],
-                                ),
-                        ),
                       ),
                       const SizedBox(height: 18),
                       TextFormField(
@@ -362,6 +350,28 @@ class _LivresPageState extends State<LivresPage> {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text('Tous'),
+                  icon: Icon(Icons.menu_book),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text('Favoris'),
+                  icon: Icon(Icons.favorite),
+                ),
+              ],
+              selected: {_afficherFavoris},
+              onSelectionChanged: (selection) {
+                setState(() => _afficherFavoris = selection.first);
+                _loadLivres(_searchController.text);
+              },
+            ),
+          ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: green))
@@ -411,6 +421,45 @@ class _LivresPageState extends State<LivresPage> {
     );
   }
 
+  Widget _buildLivreCover(String? photo) {
+    if (photo == null || photo.isEmpty) {
+      return Container(
+        color: cream,
+        child: const Icon(Icons.menu_book, color: green, size: 35),
+      );
+    }
+
+    if (photo.startsWith('base64:')) {
+      final bytes = SQLHelper.decoderCouverture(photo);
+
+      if (bytes != null) {
+        return Image.memory(bytes, fit: BoxFit.cover);
+      }
+    }
+
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return Image.network(
+        photo,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(
+          color: cream,
+          child: const Icon(Icons.menu_book, color: green),
+        ),
+      );
+    }
+
+    final file = File(photo);
+
+    if (file.existsSync()) {
+      return Image.file(file, fit: BoxFit.cover);
+    }
+
+    return Container(
+      color: cream,
+      child: const Icon(Icons.menu_book, color: green),
+    );
+  }
+
   Widget _livreCard(Map<String, dynamic> livre) {
     final photo = livre['photo'] as String?;
     final writer = livre['nomEcrivain'] == null
@@ -429,19 +478,11 @@ class _LivresPageState extends State<LivresPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
+
               child: SizedBox(
                 width: 76,
                 height: 100,
-                child: photo != null && File(photo).existsSync()
-                    ? Image.file(File(photo), fit: BoxFit.cover)
-                    : Container(
-                        color: cream,
-                        child: const Icon(
-                          Icons.menu_book,
-                          color: green,
-                          size: 35,
-                        ),
-                      ),
+                child: _buildLivreCover(photo),
               ),
             ),
             const SizedBox(width: 13),
@@ -484,17 +525,46 @@ class _LivresPageState extends State<LivresPage> {
                 ],
               ),
             ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _showForm(livre: livre);
-                } else if (value == 'delete') {
-                  _deleteLivre(livre);
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Voir les détails',
+                  icon: const Icon(Icons.visibility_outlined, color: forest),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LivreDetailPage(livre: livre),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Favoris',
+                  onPressed: () => _toggleFavori(livre),
+                  icon: Icon(
+                    (livre['favori'] ?? 0) == 1
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    color: (livre['favori'] ?? 0) == 1
+                        ? Colors.red
+                        : Colors.grey,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showForm(livre: livre);
+                    } else if (value == 'delete') {
+                      _deleteLivre(livre);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                    PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                  ],
+                ),
               ],
             ),
           ],

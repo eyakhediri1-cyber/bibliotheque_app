@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:bibliotheque_app/database/sql_helper.dart';
-import 'package:bibliotheque_app/widgets/drawer_widget.dart';
+
+import '../database/sql_helper.dart';
+import '../utils/app_theme.dart';
+import '../widgets/drawer_widget.dart';
+import 'livre_consultation_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,295 +13,349 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const Color forest = Color(0xFF183F35);
-  static const Color green = Color(0xFF477A60);
-  static const Color cream = Color(0xFFF7F5EF);
-  static const Color gold = Color(0xFFC49A55);
+  List<Map<String, dynamic>> livres = [];
+  List<Map<String, dynamic>> ecrivains = [];
+  List<Map<String, dynamic>> favoris = [];
 
-  int _livres = 0;
-  int _ecrivains = 0;
-  bool _loading = true;
+  bool chargement = true;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    chargerDonnees();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> chargerDonnees() async {
     try {
-      final results = await Future.wait([
-        SQLHelper.countLivres(),
-        SQLHelper.countEcrivains(),
+      final resultats = await Future.wait([
+        SQLHelper.getLivres(),
+        SQLHelper.getEcrivains(),
+        SQLHelper.getLivresFavoris(),
       ]);
 
       if (!mounted) return;
 
       setState(() {
-        _livres = results[0];
-        _ecrivains = results[1];
-        _loading = false;
+        livres = resultats[0];
+        ecrivains = resultats[1];
+        favoris = resultats[2];
+        chargement = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() => chargement = false);
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erreur de chargement : $e')));
     }
   }
 
-  Future<void> _openPage(String route) async {
-    await Navigator.pushNamed(context, route);
-    if (mounted) _loadStats();
+  String titreLivre(Map<String, dynamic> livre) {
+    for (final key in ['titre', 'title', 'nom']) {
+      final value = livre[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return 'Livre sans titre';
+  }
+
+  String auteurLivre(Map<String, dynamic> livre) {
+    for (final key in ['nomEcrivain', 'ecrivain', 'auteur', 'writer']) {
+      final value = livre[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return 'Auteur non renseigné';
+  }
+
+  Widget carteIndicateur(
+    String titre,
+    int valeur,
+    IconData icone,
+    Color couleur,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 21,
+            backgroundColor: couleur.withValues(alpha: 0.12),
+            child: Icon(icone, color: couleur, size: 21),
+          ),
+          const SizedBox(height: 13),
+          Text(
+            '$valeur',
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF26352D),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            titre,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget raccourci(
+    BuildContext context,
+    String titre,
+    IconData icone,
+    String route,
+  ) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, route),
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Column(
+            children: [
+              Icon(icone, color: AppTheme.forest, size: 27),
+              const SizedBox(height: 8),
+              Text(
+                titre,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: cream,
-      drawer: const MyDrawer(),
+      backgroundColor: const Color(0xFFF4F6F2),
       appBar: AppBar(
-        backgroundColor: forest,
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: const Text(
           'LibraryFlow',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        backgroundColor: AppTheme.forest,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: 'Actualiser',
-            onPressed: _loadStats,
-            icon: const Icon(Icons.refresh),
+            onPressed: chargerDonnees,
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        color: forest,
-        onRefresh: _loadStats,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _welcomeCard(),
-              const SizedBox(height: 28),
-              const Text(
-                'Vue d’ensemble',
-                style: TextStyle(
-                  color: forest,
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _statCard(
-                      title: 'Livres',
-                      value: _livres,
-                      icon: Icons.menu_book_rounded,
-                      color: green,
-                    ),
-                  ),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: _statCard(
-                      title: 'Écrivains',
-                      value: _ecrivains,
-                      icon: Icons.people_alt_rounded,
-                      color: gold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Votre bibliothèque',
-                style: TextStyle(
-                  color: forest,
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _navigationCard(
-                icon: Icons.menu_book_rounded,
-                title: 'Gestion des livres',
-                description: 'Ajouter, consulter et organiser vos livres',
-                onTap: () => _openPage('/livres'),
-              ),
-              const SizedBox(height: 12),
-              _navigationCard(
-                icon: Icons.people_alt_rounded,
-                title: 'Gestion des écrivains',
-                description: 'Gérer les auteurs et leurs coordonnées',
-                onTap: () => _openPage('/ecrivains'),
-              ),
-              const SizedBox(height: 25),
-              Container(
-                width: double.infinity,
+      drawer: const MyDrawer(),
+      body: chargement
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: chargerDonnees,
+              child: ListView(
                 padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, color: gold, size: 28),
-                    SizedBox(width: 13),
-                    Expanded(
-                      child: Text(
-                        'Une bibliothèque bien organisée commence par une collection bien renseignée.',
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: AppTheme.forest,
+                      borderRadius: BorderRadius.circular(21),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bienvenue dans votre bibliothèque !',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 9),
+                        Text(
+                          'Organisez, découvrez et retrouvez vos livres préférés.',
+                          style: TextStyle(color: Colors.white70, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  const Text(
+                    'Vue d’ensemble',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 13),
+
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.35,
+                    children: [
+                      carteIndicateur(
+                        'Total des livres',
+                        livres.length,
+                        Icons.menu_book_rounded,
+                        AppTheme.forest,
+                      ),
+                      carteIndicateur(
+                        'Écrivains',
+                        ecrivains.length,
+                        Icons.people_alt_rounded,
+                        Colors.blue,
+                      ),
+                      carteIndicateur(
+                        'Favoris',
+                        favoris.length,
+                        Icons.favorite_rounded,
+                        Colors.redAccent,
+                      ),
+                      carteIndicateur(
+                        'Sans écrivain',
+                        livres
+                            .where((livre) => livre['ecrivainId'] == null)
+                            .length,
+                        Icons.bookmark_remove_rounded,
+                        Colors.orange,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  const Text(
+                    'Accès rapide',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 13),
+
+                  Row(
+                    children: [
+                      raccourci(context, 'Livres', Icons.menu_book, '/livres'),
+                      const SizedBox(width: 10),
+                      raccourci(
+                        context,
+                        'Écrivains',
+                        Icons.people,
+                        '/ecrivains',
+                      ),
+                      const SizedBox(width: 10),
+                      raccourci(
+                        context,
+                        'Recherche',
+                        Icons.search,
+                        '/recherche',
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Livres de la bibliothèque',
                         style: TextStyle(
-                          color: forest,
-                          fontSize: 13,
-                          height: 1.5,
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _welcomeCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(23),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [forest, green],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(23),
-        boxShadow: [
-          BoxShadow(
-            color: forest.withValues(alpha: 0.18),
-            blurRadius: 15,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.auto_stories_rounded, color: Colors.white, size: 35),
-          SizedBox(height: 19),
-          Text(
-            'Bienvenue dans votre bibliothèque !',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Centralisez vos livres et les informations de leurs écrivains dans un seul espace.',
-            style: TextStyle(color: Colors.white70, height: 1.5, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statCard({
-    required String title,
-    required int value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 15),
-          Text(
-            _loading ? '...' : value.toString(),
-            style: const TextStyle(
-              color: forest,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            title,
-            style: const TextStyle(color: Colors.black54, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _navigationCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(17),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: forest, size: 25),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: forest,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/livres'),
+                        child: const Text('Tout voir'),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      description,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 11,
+                    ],
+                  ),
+
+                  if (livres.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                  ],
-                ),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.library_books_outlined,
+                            size: 45,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 10),
+                          Text('Votre bibliothèque est encore vide.'),
+                        ],
+                      ),
+                    )
+                  else
+                    ...livres.take(5).map((livre) {
+                      return Card(
+                        color: Colors.white,
+                        elevation: 0,
+                        margin: const EdgeInsets.only(bottom: 9),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.forest.withValues(
+                              alpha: 0.10,
+                            ),
+                            child: Icon(
+                              Icons.menu_book,
+                              color: AppTheme.forest,
+                            ),
+                          ),
+                          title: Text(
+                            titreLivre(livre),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(auteurLivre(livre)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    LivreConsultationPage(livre: livre),
+                              ),
+                            ).then((_) => chargerDonnees());
+                          },
+                        ),
+                      );
+                    }),
+                ],
               ),
-              const Icon(Icons.arrow_forward_ios, color: green, size: 16),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

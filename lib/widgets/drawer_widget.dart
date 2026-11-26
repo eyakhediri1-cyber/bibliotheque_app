@@ -47,6 +47,7 @@ class MyDrawer extends StatelessWidget {
               '/home',
               currentRoute,
             ),
+
             _menuItem(
               context,
               Icons.menu_book_rounded,
@@ -56,9 +57,33 @@ class MyDrawer extends StatelessWidget {
             ),
             _menuItem(
               context,
+              Icons.search_rounded,
+              'Recherche avancée',
+              '/recherche',
+              currentRoute,
+            ),
+
+            _menuItem(
+              context,
               Icons.people_alt_rounded,
               'Gestion des écrivains',
               '/ecrivains',
+              currentRoute,
+            ),
+
+            _menuItem(
+              context,
+              Icons.favorite_rounded,
+              'Mes favoris',
+              '/favoris',
+              currentRoute,
+            ),
+
+            _menuItem(
+              context,
+              Icons.bar_chart_rounded,
+              'Statistiques',
+              '/statistiques',
               currentRoute,
             ),
 

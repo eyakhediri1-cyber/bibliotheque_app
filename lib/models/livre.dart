@@ -5,6 +5,7 @@ class Livre {
   final String? dateSortie;
   final String? photo;
   final int? ecrivainId;
+  final bool favori;
 
   Livre({
     this.id,
@@ -13,6 +14,7 @@ class Livre {
     this.dateSortie,
     this.photo,
     this.ecrivainId,
+    this.favori = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +25,7 @@ class Livre {
       'dateSortie': dateSortie,
       'photo': photo,
       'ecrivainId': ecrivainId,
+      'favori': favori ? 1 : 0,
     };
   }
 
@@ -34,6 +37,7 @@ class Livre {
       dateSortie: map['dateSortie'] as String?,
       photo: map['photo'] as String?,
       ecrivainId: map['ecrivainId'] as int?,
+      favori: (map['favori'] ?? 0) == 1,
     );
   }
 }
