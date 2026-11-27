@@ -209,9 +209,6 @@ Ce projet permet de mettre en pratique plusieurs concepts du développement d'ap
 
 **Eya Khediri**
 
-Étudiante en troisième année de Licence Informatique.
-
-GitHub : [@eyakhediri1-cyber](https://github.com/eyakhediri1-cyber)
 
 ---
 
