@@ -89,163 +89,188 @@ class _LivresPageState extends State<LivresPage> {
     String? photo = livre?['photo'];
     int? selectedWriter = livre?['ecrivainId'];
 
-    List<Map<String, dynamic>> writers = await SQLHelper.getEcrivains();
+    try {
+      final List<Map<String, dynamic>> writers = await SQLHelper.getEcrivains();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    await showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
-              title: Text(
-                isEditing ? 'Modifier le livre' : 'Nouveau livre',
-                style: const TextStyle(
-                  color: forest,
-                  fontWeight: FontWeight.bold,
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
                 ),
-              ),
-              content: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CouverturePicker(
-                        initialImage: photo,
-                        initialQuery: titreController.text,
-                        onChanged: (value) {
-                          setDialogState(() => photo = value);
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      TextFormField(
-                        controller: titreController,
-                        decoration: const InputDecoration(
-                          labelText: 'Titre du livre *',
-                          prefixIcon: Icon(Icons.menu_book_outlined),
+                title: Text(
+                  isEditing ? 'Modifier le livre' : 'Nouveau livre',
+                  style: const TextStyle(
+                    color: forest,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                content: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CouverturePicker(
+                          initialImage: photo,
+                          initialQuery: titreController.text,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              photo = value;
+                            });
+                          },
                         ),
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty
-                            ? 'Le titre est obligatoire'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: isbnController,
-                        decoration: const InputDecoration(
-                          labelText: 'ISBN',
-                          prefixIcon: Icon(Icons.numbers),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int?>(
-                        initialValue: selectedWriter,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Écrivain',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        items: [
-                          const DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text('Non attribué'),
+                        const SizedBox(height: 18),
+                        TextFormField(
+                          controller: titreController,
+                          decoration: const InputDecoration(
+                            labelText: 'Titre du livre *',
+                            prefixIcon: Icon(Icons.menu_book_outlined),
                           ),
-                          ...writers.map(
-                            (writer) => DropdownMenuItem<int?>(
-                              value: writer['id'] as int,
-                              child: Text(
-                                '${writer['prenom']} ${writer['nom']}',
-                                overflow: TextOverflow.ellipsis,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? 'Le titre est obligatoire'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: isbnController,
+                          decoration: const InputDecoration(
+                            labelText: 'ISBN',
+                            prefixIcon: Icon(Icons.numbers),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<int?>(
+                          initialValue: selectedWriter,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Écrivain',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('Non attribué'),
+                            ),
+                            ...writers.map(
+                              (writer) => DropdownMenuItem<int?>(
+                                value: writer['id'] as int,
+                                child: Text(
+                                  '${writer['prenom']} ${writer['nom']}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setDialogState(() => selectedWriter = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.tryParse(dateSortie) ?? DateTime.now(),
-                            firstDate: DateTime(1900),
-                            lastDate: DateTime.now(),
-                          );
-                          if (pickedDate != null) {
+                          ],
+                          onChanged: (value) {
                             setDialogState(() {
-                              dateSortie =
-                                  '${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}';
+                              selectedWriter = value;
                             });
-                          }
-                        },
-                        icon: const Icon(Icons.calendar_month),
-                        label: Text(
-                          dateSortie.isEmpty
-                              ? 'Choisir la date de sortie'
-                              : 'Date : $dateSortie',
+                          },
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final pickedDate = await showDatePicker(
+                              context: dialogContext,
+                              initialDate:
+                                  DateTime.tryParse(dateSortie) ??
+                                  DateTime.now(),
+                              firstDate: DateTime(1900),
+                              lastDate: DateTime.now(),
+                            );
+
+                            if (pickedDate != null && dialogContext.mounted) {
+                              setDialogState(() {
+                                dateSortie =
+                                    '${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}';
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month),
+                          label: Text(
+                            dateSortie.isEmpty
+                                ? 'Choisir la date de sortie'
+                                : 'Date : $dateSortie',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Annuler'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: forest,
-                    foregroundColor: Colors.white,
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext, false);
+                    },
+                    child: const Text('Annuler'),
                   ),
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: forest,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(dialogContext, true);
+                      }
+                    },
+                    child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
 
-                    if (isEditing) {
-                      await SQLHelper.updateLivre(
-                        livre['id'] as int,
-                        titreController.text.trim(),
-                        isbnController.text.trim(),
-                        dateSortie,
-                        photo,
-                        selectedWriter,
-                      );
-                    } else {
-                      await SQLHelper.createLivre(
-                        titreController.text.trim(),
-                        isbnController.text.trim(),
-                        dateSortie,
-                        photo,
-                        selectedWriter,
-                      );
-                    }
+      if (confirmed != true || !mounted) return;
 
-                    if (!dialogContext.mounted) return;
-                    Navigator.pop(dialogContext);
-                    await _loadLivres(_searchController.text);
-                    _showMessage(isEditing ? 'Livre modifié' : 'Livre ajouté');
-                  },
-                  child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
-                ),
-              ],
-            );
-          },
+      // La sauvegarde intervient après la fermeture complète du dialogue.
+      if (isEditing) {
+        await SQLHelper.updateLivre(
+          livre['id'] as int,
+          titreController.text.trim(),
+          isbnController.text.trim(),
+          dateSortie,
+          photo,
+          selectedWriter,
         );
-      },
-    );
+      } else {
+        await SQLHelper.createLivre(
+          titreController.text.trim(),
+          isbnController.text.trim(),
+          dateSortie,
+          photo,
+          selectedWriter,
+        );
+      }
 
-    titreController.dispose();
-    isbnController.dispose();
+      if (!mounted) return;
+
+      await _loadLivres(_searchController.text);
+
+      if (!mounted) return;
+
+      _showMessage(isEditing ? 'Livre modifié' : 'Livre ajouté');
+    } catch (e, stack) {
+      debugPrint('Erreur formulaire livre : $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (mounted) {
+        _showMessage('Erreur lors de l’enregistrement du livre');
+      }
+    } finally {
+      titreController.dispose();
+      isbnController.dispose();
+    }
   }
 
   Future<void> _deleteLivre(Map<String, dynamic> livre) async {

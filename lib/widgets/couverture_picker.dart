@@ -69,7 +69,7 @@ class _CouverturePickerState extends State<CouverturePicker> {
       results = [];
     });
 
-    final books = await BookCoverService.search(query);
+    final books = await BookCoverService.searchBooks(query);
 
     if (!mounted) return;
 

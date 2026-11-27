@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart' show databaseFactory;
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'package:bibliotheque_app/database/sql_helper.dart';
+import 'package:bibliotheque_app/services/catalogue_initial_service.dart';
 import 'package:bibliotheque_app/pages/home_page.dart';
 import 'package:bibliotheque_app/pages/livres_page.dart';
 import 'package:bibliotheque_app/pages/ecrivains_page.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   }
 
   await SQLHelper.db();
+  await CatalogueInitialService.initialiser();
 
   runApp(const BibliothequeApp());
 }
